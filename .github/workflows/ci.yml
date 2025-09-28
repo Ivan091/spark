@@ -3,7 +3,7 @@ on:
   pull_request:
   push:
 jobs:
-  test:
+  docker:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -13,6 +13,7 @@ jobs:
         with:
           distribution: corretto
           java-version: 21
-          cache: sbt
-      - name: Build and Test
-        run: sbt -v +test
+      - name: Setup sbt launcher
+        uses: sbt/setup-sbt@v1
+      - name: Publish
+        run: sbt "Docker/publish"
