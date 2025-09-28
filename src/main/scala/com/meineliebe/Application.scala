@@ -9,7 +9,8 @@ case class Data(name: String, age: Int)
 
 object Application {
 
-  val root = ".warehouse"
+  private val extractRoot = ".data"
+  private val loadRoot = ".warehouse"
 
   private val extractionOptions = Map(
     "header" -> "true",
@@ -40,14 +41,14 @@ object Application {
     val apps =
       spark.read
         .options(extractionOptions)
-        .csv(s"$root/app/googleplaystore.csv")
+        .csv(s"$extractRoot/app/googleplaystore.csv")
         .select("App", "Rating")
         .na.drop(Seq("Rating"))
 
     val reviews =
       spark.read
         .options(extractionOptions)
-        .csv(s"$root/app/googleplaystore_user_reviews.csv")
+        .csv(s"$extractRoot/app/googleplaystore_user_reviews.csv")
         .select("App", "Translated_Review", "Sentiment_Polarity")
         .withColumn(
           "Sentiment_Polarity",
@@ -74,8 +75,6 @@ object Application {
         .orderBy($"Total_Reviews".desc)
         .cache()
 
-    joined.explain()
-
     joined.orderBy($"Rating".desc).show(truncate = false)
     joined.orderBy($"Median_Polarity".desc).show(truncate = false)
     joined.orderBy($"Average_Polarity".desc).show(truncate = false)
@@ -85,6 +84,6 @@ object Application {
       .write
       .options(loadOptions)
       .mode(SaveMode.Overwrite)
-      .csv(s"$root/app-out/avg-median")
+      .csv(s"$loadRoot/app-out/avg-median")
   }
 }
