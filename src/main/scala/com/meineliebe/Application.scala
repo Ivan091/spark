@@ -3,12 +3,25 @@ package com.meineliebe
 import org.apache.spark.sql.classic.SparkSession
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.DoubleType
-
-import java.nio.charset.Charset
+import org.apache.spark.sql.SaveMode
 
 case class Data(name: String, age: Int)
 
 object Application {
+
+  val root = ".warehouse"
+
+  private val extractionOptions = Map(
+    "header" -> "true",
+    "inferSchema" -> "true",
+    "delimiter" -> ",",
+    "encoding" -> "UTF-8"
+  )
+
+  private val loadOptions = Map(
+    "header" -> "true",
+    "encoding" -> "UTF-8"
+  )
 
   def main(args: Array[String]): Unit = {
     val spark = SparkSession
@@ -19,22 +32,17 @@ object Application {
 
     import spark.implicits._
 
-    val extractionOptions = Map(
-      "header" -> "true",
-      "inferSchema" -> "true",
-      "delimiter" -> ",",
-      "encoding" -> "UTF-8"
-    )
+
 
     val apps =
       spark.read
         .options(extractionOptions)
-        .csv(".warehouse/app/googleplaystore.csv")
+        .csv(s"$root/app/googleplaystore.csv")
 
     val reviews =
       spark.read
         .options(extractionOptions)
-        .csv(".warehouse/app/googleplaystore_user_reviews.csv")
+        .csv(s"$root/app/googleplaystore_user_reviews.csv")
         .withColumn(
           "Sentiment_Polarity",
           $"Sentiment_Polarity".try_cast(DoubleType)
@@ -62,5 +70,12 @@ object Application {
 
     joined.orderBy($"Median_Polarity".desc).show(truncate = false)
     joined.orderBy($"Average_Polarity".desc).show(truncate = false)
+
+    joined
+      .coalesce(1)
+      .write
+      .options(loadOptions)
+      .mode(SaveMode.Overwrite)
+      .csv(s"$root/app-out/avg-median")
   }
 }
