@@ -15,7 +15,12 @@ object Application {
     "header" -> "true",
     "inferSchema" -> "true",
     "delimiter" -> ",",
-    "encoding" -> "UTF-8"
+    "encoding" -> "UTF-8",
+    "header" -> "true",
+    "inferSchema" -> "true",
+    "quote" -> "\"",
+    "escape" -> "\"",
+    "multiLine" -> "true"
   )
 
   private val loadOptions = Map(
@@ -32,31 +37,32 @@ object Application {
 
     import spark.implicits._
 
-
-
     val apps =
       spark.read
         .options(extractionOptions)
         .csv(s"$root/app/googleplaystore.csv")
+        .select("App", "Rating")
+        .na.drop(Seq("Rating"))
 
     val reviews =
       spark.read
         .options(extractionOptions)
         .csv(s"$root/app/googleplaystore_user_reviews.csv")
+        .select("App", "Translated_Review", "Sentiment_Polarity")
         .withColumn(
           "Sentiment_Polarity",
           $"Sentiment_Polarity".try_cast(DoubleType)
         )
-        .filter(!$"Sentiment_Polarity".isNaN)
+        .na.drop(Seq("Sentiment_Polarity"))
 
     val joined =
       apps
         .join(reviews, apps("App") === reviews("App"), "left")
-        .groupBy(apps("App"))
+        .groupBy(apps("App"), apps("Rating"))
         .agg(
           count($"Translated_Review").as("Total_Reviews"),
           median($"Sentiment_Polarity").as("Median_Polarity"),
-          avg($"Sentiment_Polarity").as("Average_Polarity")
+          avg($"Sentiment_Polarity").as("Average_Polarity"),
         )
         .withColumns(
           Map(
@@ -64,10 +70,13 @@ object Application {
             "Average_Polarity" -> round($"Average_Polarity", 2),
           )
         )
-        .orderBy($"Total_Reviews".desc)
         .filter($"Total_Reviews" > 32)
+        .orderBy($"Total_Reviews".desc)
         .cache()
 
+    joined.explain()
+
+    joined.orderBy($"Rating".desc).show(truncate = false)
     joined.orderBy($"Median_Polarity".desc).show(truncate = false)
     joined.orderBy($"Average_Polarity".desc).show(truncate = false)
 
