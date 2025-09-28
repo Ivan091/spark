@@ -15,5 +15,3 @@ jobs:
           java-version: 21
       - name: Setup sbt launcher
         uses: sbt/setup-sbt@v1
-      - name: Publish
-        run: sbt "Docker/publish"
