@@ -1,0 +1,4 @@
+* text=auto
+*.scala text eol=lf
+*.sbt text eol=lf
+

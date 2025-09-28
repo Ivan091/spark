@@ -1,0 +1,14 @@
+<configuration>
+  <appender name="Console" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <pattern>
+        %d{HH:mm:ss.SSS} [%-13thread] %highlight(%-5level) -%kvp- %msg%n
+      </pattern>
+    </encoder>
+  </appender>
+
+  <root level="info">
+    <appender-ref ref="Console"/>
+  </root>
+
+</configuration>
