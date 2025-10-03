@@ -1,5 +1,6 @@
 package com.meineliebe
 
+import com.meineliebe.Common.{extractionOptions, extractRoot, loadOptions, loadRoot}
 import org.apache.spark.sql.classic.SparkSession
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.DoubleType
@@ -7,32 +8,12 @@ import org.apache.spark.sql.SaveMode
 
 case class Data(name: String, age: Int)
 
-object Application {
-
-  private val extractRoot = ".data"
-  private val loadRoot = ".warehouse"
-
-  private val extractionOptions = Map(
-    "header" -> "true",
-    "inferSchema" -> "true",
-    "delimiter" -> ",",
-    "encoding" -> "UTF-8",
-    "header" -> "true",
-    "inferSchema" -> "true",
-    "quote" -> "\"",
-    "escape" -> "\"",
-    "multiLine" -> "true"
-  )
-
-  private val loadOptions = Map(
-    "header" -> "true",
-    "encoding" -> "UTF-8"
-  )
+object App {
 
   def main(args: Array[String]): Unit = {
     val spark = SparkSession
       .builder()
-      .appName("MeineLiebeApplication")
+      .appName("App")
       .master("local[4]")
       .getOrCreate()
 
@@ -85,5 +66,5 @@ object Application {
       .options(loadOptions)
       .mode(SaveMode.Overwrite)
       .csv(s"$loadRoot/app-out/avg-median")
-  }
+	}
 }
