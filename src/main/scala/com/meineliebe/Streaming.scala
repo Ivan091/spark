@@ -3,6 +3,7 @@ package com.meineliebe
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import com.meineliebe.Order.orderArb
+import com.meineliebe.Streaming.topic
 import fs2.kafka.{AutoOffsetReset, ConsumerSettings, Deserializer, KafkaConsumer, KafkaProducer, ProducerRecord, ProducerRecords, ProducerSettings, Serializer}
 import io.circe.generic.auto._
 import io.circe.syntax.EncoderOps
@@ -10,7 +11,7 @@ import org.scalacheck.{Arbitrary, Gen}
 import io.circe.parser.decode
 import org.apache.spark.sql.catalyst.ScalaReflection
 import org.apache.spark.sql.classic.SparkSession
-import org.apache.spark.sql.functions.from_json
+import org.apache.spark.sql.functions._
 import org.apache.spark.sql.streaming.OutputMode
 import org.apache.spark.sql.types.{IntegerType, StringType, StructField, StructType}
 
@@ -24,13 +25,17 @@ object Order {
     "S&P500",
     "CSPX",
     "DAXEX",
-    "IMAE"
+    "IMAE",
+    "AAPL",
+    "PEPSI",
+    "PZU",
+    "CON"
   )
 
   val orderArb: Arbitrary[Order] = Arbitrary(
     for {
-      ticker: String <- Gen.oneOf(tickers)
-      amount <- Gen.gaussian(50, 15).suchThat(_ > 0).map(math.round)
+      ticker <- Gen.oneOf(tickers)
+      amount <- Gen.poisson(50).suchThat(_ > 0)
       price <- Gen.gaussian(1000, 200)
       time <- Gen.const(Instant.now())
     } yield Order(ticker, amount, price, time)
@@ -47,10 +52,9 @@ object Order {
   }
 }
 
-object Streaming {
+object Produce {
   def main(args: Array[String]): Unit = {
 
-    val topic = "topic"
     val producerSettings =
       ProducerSettings[IO, Unit, Order]
         .withBootstrapServers("localhost:9092")
@@ -62,22 +66,20 @@ object Streaming {
         .withGroupId("group")
 
     fs2.Stream
-      .fixedRateStartImmediately[IO](100.milli)
+      .fixedRateStartImmediately[IO](10.milli)
       .flatMap(_ => fs2.Stream.emits(orderArb.arbitrary.sample.toSeq))
-      .map(event => ProducerRecords.one(ProducerRecord("topic", (), event)))
+      .map(event => ProducerRecords.one(ProducerRecord(topic, (), event)))
       .through(KafkaProducer.pipe(producerSettings))
       .compile
       .drain
-      .unsafeRunAndForget()
+      .unsafeRunSync()
+  }
+}
 
-//    KafkaConsumer
-//      .stream(consumerSettings)
-//      .subscribeTo(topic)
-//      .flatMap(consumer => consumer.stream.map(_.record.value))
-//      .evalTap(IO.println)
-//      .compile
-//      .drain
-//      .unsafeRunSync()
+object Streaming {
+  val topic = "topic"
+
+  def main(args: Array[String]): Unit = {
 
     val spark = SparkSession
       .builder()
@@ -97,10 +99,20 @@ object Streaming {
       .load()
       .select(from_json($"value".cast("string"), eventSchema).as("event"))
       .select("event.*")
+      .as[Order]
+      .groupBy(
+        window($"time", "1 hour", "1 hour"),
+        $"ticker"
+      ).agg(
+        count($"ticker"),
+        avg($"price"),
+        percentile_approx($"price", lit(0.9), lit(1000)).as("p90"),
+        percentile_approx($"price", lit(0.1), lit(1000)).as("p10"),
+      )
 
     val consoleWriter = ds.writeStream
       .format("console")
-      .outputMode(OutputMode.Append())
+      .outputMode(OutputMode.Update())
       .option("truncate", "false")
       .start()
 
