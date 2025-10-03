@@ -19,6 +19,10 @@
       <AppenderRef ref="Console"/>
     </Logger>
 
+    <logger name="org.apache.kafka" level="error" additivity="false">
+      <AppenderRef ref="Console"/>
+    </logger>
+
     <Root level="info">
       <AppenderRef ref="Console"/>
     </Root>
