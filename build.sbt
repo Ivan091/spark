@@ -6,7 +6,14 @@ Global / cancelable := true
 Global / connectInput := true
 Global / onChangedBuildSource := ReloadOnSourceChanges
 
-javaOptions ++= Seq("-Xmx8G", "-Dfile.encoding=UTF-8", "-Dsun.stdout.encoding=UTF-8", "-Dsun.stderr.encoding=UTF-8")
+javaOptions ++= Seq(
+  "-Xmx16G",
+  "-Dfile.encoding=UTF-8",
+  "-Dsun.stdout.encoding=UTF-8",
+  "-Dsun.stderr.encoding=UTF-8",
+  "--add-opens",
+  "java.base/sun.util.calendar=ALL-UNNAMED"
+)
 
 scalacOptions ++= Seq(
   "-deprecation",
